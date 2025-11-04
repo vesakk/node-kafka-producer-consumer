@@ -1,26 +1,29 @@
-import Kafka from 'node-rdkafka';
+import { Kafka } from 'kafkajs';
 import eventType from '../eventType.js';
 
-const stream = Kafka.Producer.createWriteStream({
-  'metadata.broker.list': 'localhost:9092'
-}, {}, {
-  topic: 'test'
+// KafkaJS-based producer replacing node-rdkafka
+const kafka = new Kafka({
+  clientId: 'node-kafka-producer',
+  brokers: ['localhost:9092'],
 });
 
-stream.on('error', (err) => {
-  console.error('Error in our kafka stream');
-  console.error(err);
-});
+const producer = kafka.producer();
 
-function queueRandomMessage() {
+async function sendRandomMessage() {
   const category = getRandomAnimal();
   const noise = getRandomNoise(category);
   const event = { category, noise };
-  const success = stream.write(eventType.toBuffer(event));     
-  if (success) {
-    console.log(`message queued (${JSON.stringify(event)})`);
-  } else {
-    console.log('Too many messages in the queue already..');
+
+  try {
+    await producer.send({
+      topic: 'test',
+      messages: [
+        { value: eventType.toBuffer(event) }
+      ],
+    });
+    console.log(`message sent (${JSON.stringify(event)})`);
+  } catch (error) {
+    console.error('Failed to send message', error);
   }
 }
 
@@ -41,6 +44,19 @@ function getRandomNoise(animal) {
   }
 }
 
-setInterval(() => {
-  queueRandomMessage();
-}, 3000);
+async function start() {
+  await producer.connect();
+  console.log('producer ready..');
+  setInterval(sendRandomMessage, 3000);
+}
+
+start();
+
+// Graceful shutdown
+process.on('SIGINT', async () => {
+  try {
+    await producer.disconnect();
+  } finally {
+    process.exit(0);
+  }
+});

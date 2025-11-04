@@ -11,7 +11,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "avsc": "^5.6.2",
-    "node-rdkafka": "^2.10.1"
+    "kafkajs": "^2.2.4",
+    "avsc": "^5.7.9"
   }
 }
